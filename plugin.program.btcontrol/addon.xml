@@ -1,0 +1,8 @@
+<addon name="Bluetooth Control" version="1.0.0~alpha" id="plugin.program.btcontrol" provider-name="Brandon Shields">
+	<requires></requires>
+	<extension point="xbmc.python.pluginsource" library="addon.py">
+		<provides>executable</provides></extension>
+	<extension point="xbmc.addon.metadata">
+		<summary>A bluetooth agent for Kodi</summary>
+		<description>Provides basic pairing capabilities to Kodi. Relies on the linux utility "bluetoothctl"</description>
+		<platform>linux</platform></extension></addon>
