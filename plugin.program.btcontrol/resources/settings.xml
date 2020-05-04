@@ -1,0 +1,3 @@
+<settings>
+	<category label="30001">
+		<setting label="30010" id="bluetoothctl_path" type="executable" default="/usr/bin/bluetoothctl"></setting></category></settings>

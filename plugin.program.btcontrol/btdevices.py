@@ -35,17 +35,19 @@ logger.addHandler(hdlDebug)
 
 
 def debugPrint(message, *args):
-    xbmc.log(message, level=xbmc.LOGNOTICE)
+    xbmc.log("{}".format(message), level=xbmc.LOGNOTICE)
     #logger.debug(message, *args)
     
 def infoPrint(message, *args):
-    xbmc.log(message, level=xbmc.LOGINFO)
+    xbmc.log("{}".format(message), level=xbmc.LOGINFO)
     #logger.info(message, *args)
     
 def errorPrint(message, *args):
-    xbmc.log(message, level=xbmc.LOGERROR)
+    xbmc.log("{}".format(message), level=xbmc.LOGERROR)
     #logger.error(message, *args)
 
+def notify(message, delay=2000):
+    xbmc.executebuiltin('Notification(%s, %s, %d)'%("Bluetooth",message, delay))
 
 def decode_response(message):
     response={}
@@ -91,7 +93,6 @@ def decode_response(message):
         response['data']['attr'], response['data']['value']=cleaned.split(': ',1)
         offset = -1
     else:
-        debugPrint ("Unknown response")
         response['action']="none"
         offset = -1
     
@@ -99,7 +100,6 @@ def decode_response(message):
     if offset >= 0:
         response['data'] = {}
         response['data']['type'], response['data']['addr'], response['data']['desc'] = cleaned[offset:].split(' ', 2)
-    #debugPrint (response)
     return response
 
 class btdevices:
@@ -107,10 +107,11 @@ class btdevices:
     scanning = False
     ready = False
     infoIndex = -1
-    def __init__(self):
+    infoDevice = None
+    def __init__(self, exe="/usr/bin/bluetoothctl"):
         infoPrint("starting")
-        
-        self.bt_proc = pexpect.spawn("/usr/bin/bluetoothctl")
+
+        self.bt_proc = pexpect.spawn(exe)
         if not self.bt_proc.isalive():
             errorPrint ("Process failed to start")
             
@@ -121,6 +122,7 @@ class btdevices:
 
     def quit(self):
         self.bt_proc.sendline('quit')
+        self.waitfor("Agent unregistered", 5)
         
     def __del__(self):
         self.quit()
@@ -143,7 +145,7 @@ class btdevices:
         while True:
             try:
                 i = self.bt_proc.expect(prompt, timeout=timeout)
-                output = self.bt_proc.before
+                output = self.bt_proc.before + self.bt_proc.after
                 result = decode_response(output)
                 if result['action'] == 'new' and result['data']['type'] == 'Device' :
                     self.devices.append(result['data'])
@@ -154,17 +156,19 @@ class btdevices:
                 elif result['action'] == 'update':
                     if self.infoIndex != -1 and len(self.devices) > self.infoIndex:
                         self.devices[self.infoIndex][result['data']['attr']] = result['data']['value']
+                    elif self.infoDevice is not None:
+                        self.infoDevice[result['data']['attr']] = result['data']['value']
                 if i > 0:
-                    return 1
+                    return i
             except pexpect.EOF:
                 errorPrint ("read end")
                 return 0
             except pexpect.TIMEOUT:
                 errorPrint ("read timeout")
                 return 0
-            except:
-                errorPrint ("Process not running")
-                return 0
+            #except:
+            #    errorPrint ("Process not running")
+            #    return 0
     
     def scan(self, state):
         if self.ready:
@@ -180,16 +184,36 @@ class btdevices:
         if self.ready:
             self.bt_proc.sendline('remove {}'.format(addr))
             self.waitfor('#')
+            notify('Device unpaired', 1000)
             
     def pair(self, addr):
         if self.ready:
             self.bt_proc.sendline('pair {}'.format(addr))
-            if self.waitfor(['Pairing successful', 'Failed to pair'],10) == 1:
+            response = self.waitfor(['Confirm passkey \d+ ', 'Pairing successful', 'Failed to pair','Device {} not available'.format(addr)],60)
+            if response == 1:
+                notify(self.bt_proc.after, 5000)
+                self.bt_proc.sendline('yes')
+                response = self.waitfor(['Confirm passkey', 'Pairing successful', 'Failed to pair'],10)
+            if response == 2:
+                notify(self.bt_proc.after, 1000)
                 self.bt_proc.sendline('trust {}'.format(addr))
                 self.waitfor('#',10)
                 self.bt_proc.sendline('connect {}'.format(addr))
                 self.waitfor('#',10)
+            if response == 3 or response == 4:
+                notify(self.bt_proc.after, 1000)
 
+    def connect(self, addr):
+        if self.ready:
+            self.bt_proc.sendline('connect {}'.format(addr))
+            self.waitfor(['Connection successful', 'Failed to connect'],10)
+            notify(self.bt_proc.after, 1000)
+
+    def disconnect(self, addr):
+        if self.ready:
+            self.bt_proc.sendline('disconnect {}'.format(addr))
+            self.waitfor(['Successful disconnected','Device {} not available'.format(addr)],10)
+            notify(self.bt_proc.after, 1000)
 
     def findDevice(self, data):
         index = 0
@@ -205,15 +229,14 @@ class btdevices:
             index = index + 1
         raise StopIteration("Device not found")
 
-    def info(self, data):
+    def info(self, addr):
         if self.ready:
-            self.infoIndex = -1
-            try:
-                index = self.findDevice(data)
-            except:
-                errorPrint("Device not found")
-            else:
-                self.infoIndex = index
-                self.bt_proc.sendline('info {}\n'.format(self.devices[index]['addr']))
-                self.waitfor('#')
-                self.infoIndex = -1
+            self.waitfor('#')
+            self.infoDevice = {'addr':addr}
+            self.bt_proc.sendline('info {}\n'.format(addr))
+            self.waitfor('#')
+            newDevice = self.infoDevice
+            debugPrint(newDevice)
+            self.infoDevice = None
+            
+            return newDevice

@@ -3,6 +3,6 @@
 	<extension point="xbmc.python.pluginsource" library="addon.py">
 		<provides>executable</provides></extension>
 	<extension point="xbmc.addon.metadata">
-		<summary>A bluetooth agent for Kodi</summary>
-		<description>Provides basic pairing capabilities to Kodi. Relies on the linux utility "bluetoothctl"</description>
+		<summary lang="en_GB">A bluetooth agent for Kodi</summary>
+		<description lang="en_GB">Provides basic pairing capabilities to Kodi. Relies on the linux utility "bluetoothctl"</description>
 		<platform>linux</platform></extension></addon>

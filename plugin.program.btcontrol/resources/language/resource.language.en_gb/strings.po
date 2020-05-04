@@ -1,0 +1,43 @@
+# XBMC Media Center language file
+# Addon Name: Bluetooth Control
+# Addon id: plugin.program.btcontrol
+# Addon version: 1.0.0
+# Addon Provider: Brandon Shields
+msgid ""
+msgstr ""
+"Language: en\n"
+"Plural-Forms: nplurals=2; plural=(n != 1)\n"
+
+# Settings
+
+msgctxt "#30001"
+msgid "Paths"
+msgstr ""
+
+msgctxt "#30010"
+msgid "Bluetoothctl Path"
+msgstr ""
+
+
+# Context Menu
+
+msgctxt "#30020"
+msgid "Pair"
+msgstr ""
+
+msgctxt "#30021"
+msgid "Unpair"
+msgstr ""
+
+msgctxt "#30022"
+msgid "Rescan"
+msgstr ""
+
+msgctxt "#30023"
+msgid "Connect"
+msgstr ""
+
+msgctxt "#30024"
+msgid "Disconnect"
+msgstr ""
+
