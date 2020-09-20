@@ -71,6 +71,9 @@ def decode_response(message):
     elif cleaned.startswith("[CHG]"):
         response['action']="change"
         offset = 6
+    elif cleaned.startswith("Device "):
+        response['action']="existing"
+        offset = 0
     elif cleaned.startswith("Agent registered"):
         response['action']="agent"
         response['data']=True
@@ -149,6 +152,8 @@ class btdevices:
                 result = decode_response(output)
                 if result['action'] == 'new' and result['data']['type'] == 'Device' :
                     self.devices.append(result['data'])
+                elif result['action'] == 'existing':
+                    self.devices.append(result['data'])
                 elif result['action'] == 'scan':
                     self.scanning = result['data']
                 elif result['action'] == 'agent':
@@ -170,11 +175,29 @@ class btdevices:
             #    errorPrint ("Process not running")
             #    return 0
     
+    def getDeviceList(self):
+        if self.ready:
+            self.bt_proc.sendline('devices')
+            self.waitfor('#')
+            self.wait(1)
+        
+    def getPairedList(self):
+        if self.ready:
+            self.bt_proc.sendline('paired-devices')
+            self.waitfor('#')
+            self.wait(1)
+
+
     def scan(self, state):
         if self.ready:
             if self.scanning == False and state == True:
                 self.bt_proc.sendline('scan on')
                 self.waitfor('#')
+                self.wait(1)
+                if self.scanning == False:
+                    notify('Failed to scan', 1000)
+                    errorPrint ("Failed to start scanning")
+
                 
             elif self.scanning == True and state == False:
                 self.bt_proc.sendline('scan off')

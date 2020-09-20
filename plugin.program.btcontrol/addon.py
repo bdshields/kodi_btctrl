@@ -80,9 +80,12 @@ if __name__ == '__main__':
     bt = btdevices(bt_path)
 
     if mode is None:
+        bt.wait(1)
         bt.scan(True)
         bt.wait(10)
         bt.scan(False)
+        bt.getPairedList()
+        bt.getDeviceList()
         
         for device in bt.devices:
             url = build_url({'mode': 'info', 'desc': device['desc'], 'addr': device['addr']})
@@ -97,7 +100,7 @@ if __name__ == '__main__':
     
         xbmcplugin.endOfDirectory(addon_handle)
         
-        bt.quit()
+        
     elif mode[0] == "unpair":
         bt.unpair(addr[0])
     elif mode[0] == "pair":

@@ -30,7 +30,7 @@ msgid "Unpair"
 msgstr ""
 
 msgctxt "#30022"
-msgid "Rescan"
+msgid "Refresh"
 msgstr ""
 
 msgctxt "#30023"
@@ -39,5 +39,9 @@ msgstr ""
 
 msgctxt "#30024"
 msgid "Disconnect"
+msgstr ""
+
+msgctxt "#30025"
+msgid "Scan"
 msgstr ""
 
