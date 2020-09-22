@@ -126,11 +126,28 @@ class btdevices:
     def quit(self):
         self.bt_proc.sendline('quit')
         self.waitfor("Agent unregistered", 5)
+        self.ready = False
         
     def __del__(self):
-        self.quit()
+        if self.ready == True:
+            self.quit()
 
+    def addunique(self, newdevice):
+        for device in self.devices:
+            if device['addr'] == newdevice['addr']:
+                return
+        self.devices.append(newdevice) 
     
+    def waitIdle(self):
+        delay = 0
+        while delay < 2:
+            if self.waitfor('#') != 0:
+                # Got something, so reset wait period
+                delay = 0
+            else:
+                delay = delay + 1
+        
+        
     def wait(self, timeout):
         delay = 0
         while delay < timeout:
@@ -151,11 +168,13 @@ class btdevices:
                 output = self.bt_proc.before + self.bt_proc.after
                 result = decode_response(output)
                 if result['action'] == 'new' and result['data']['type'] == 'Device' :
-                    self.devices.append(result['data'])
+                    self.addunique(result['data'])
                 elif result['action'] == 'existing':
-                    self.devices.append(result['data'])
+                    self.addunique(result['data'])
                 elif result['action'] == 'scan':
                     self.scanning = result['data']
+                elif result['action'] == 'change':
+                    pass
                 elif result['action'] == 'agent':
                     self.ready = result['data']
                 elif result['action'] == 'update':
@@ -177,23 +196,23 @@ class btdevices:
     
     def getDeviceList(self):
         if self.ready:
+            self.waitIdle()
             self.bt_proc.sendline('devices')
             self.waitfor('#')
-            self.wait(1)
         
     def getPairedList(self):
         if self.ready:
+            self.waitIdle()
             self.bt_proc.sendline('paired-devices')
             self.waitfor('#')
-            self.wait(1)
 
 
     def scan(self, state):
         if self.ready:
             if self.scanning == False and state == True:
+                self.waitIdle()
                 self.bt_proc.sendline('scan on')
-                self.waitfor('#')
-                self.wait(1)
+                self.waitIdle()
                 if self.scanning == False:
                     notify('Failed to scan', 1000)
                     errorPrint ("Failed to start scanning")
@@ -201,12 +220,13 @@ class btdevices:
                 
             elif self.scanning == True and state == False:
                 self.bt_proc.sendline('scan off')
-                self.waitfor('#')
+                self.waitIdle()
 
     def unpair(self, addr):
         if self.ready:
+            self.waitIdle()
             self.bt_proc.sendline('remove {}'.format(addr))
-            self.waitfor('#')
+            self.waitIdle()
             notify('Device unpaired', 1000)
             
     def pair(self, addr):
@@ -254,12 +274,18 @@ class btdevices:
 
     def info(self, addr):
         if self.ready:
-            self.waitfor('#')
             self.infoDevice = {'addr':addr}
+            self.waitIdle()
             self.bt_proc.sendline('info {}\n'.format(addr))
-            self.waitfor('#')
-            newDevice = self.infoDevice
-            debugPrint(newDevice)
-            self.infoDevice = None
-            
-            return newDevice
+            if self.waitfor(['Device {} not available'.format(addr), '#']) == 1:
+                notify("Device not available", 1000)
+                return None
+            else:
+                self.waitIdle()
+                newDevice = self.infoDevice
+                #debugPrint(newDevice)
+                self.infoDevice = None
+                
+                return newDevice
+        else:
+            return None

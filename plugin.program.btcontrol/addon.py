@@ -81,11 +81,12 @@ if __name__ == '__main__':
 
     if mode is None:
         bt.wait(1)
-        bt.scan(True)
-        bt.wait(10)
-        bt.scan(False)
         bt.getPairedList()
         bt.getDeviceList()
+        if len(bt.devices) == 0:
+            bt.scan(True)
+            bt.wait(10)
+            bt.scan(False)
         
         for device in bt.devices:
             url = build_url({'mode': 'info', 'desc': device['desc'], 'addr': device['addr']})
@@ -94,13 +95,21 @@ if __name__ == '__main__':
                                     (addon.getLocalizedString(30021), 'RunPlugin({})'.format(build_url({'mode': 'unpair', 'addr': device['addr']}))),
                                     (addon.getLocalizedString(30023), 'RunPlugin({})'.format(build_url({'mode': 'connect', 'addr': device['addr']}))),
                                     (addon.getLocalizedString(30024), 'RunPlugin({})'.format(build_url({'mode': 'disconnect', 'addr': device['addr']}))),
-                                    (addon.getLocalizedString(30022), 'Container.Refresh')
+                                    (addon.getLocalizedString(30025), 'RunPlugin({})'.format(build_url({'mode': 'scan'}))),
                                     ],replaceItems=True)
             xbmcplugin.addDirectoryItem(handle=addon_handle, url=url,  listitem=li, isFolder=True)
     
         xbmcplugin.endOfDirectory(addon_handle)
         
         
+    elif mode[0] == "scan":
+        xbmc.executebuiltin("ActivateWindow(busydialognocancel)")
+        bt.wait(1)
+        bt.scan(True)
+        bt.wait(10)
+        bt.scan(False)
+        xbmc.executebuiltin("Dialog.Close(busydialognocancel)")
+        xbmc.executebuiltin('Container.Refresh()')
     elif mode[0] == "unpair":
         bt.unpair(addr[0])
     elif mode[0] == "pair":
@@ -111,12 +120,14 @@ if __name__ == '__main__':
         bt.disconnect(addr[0])
     elif mode[0] == "info":
         devInfo = bt.info(addr[0])
-        for key in devInfo:
-            url = build_url({'mode': 'None'})
-            li = xbmcgui.ListItem(key + ': {}'.format(devInfo[key]))
-            xbmcplugin.addDirectoryItem(handle=addon_handle, url=url, listitem=li, isFolder=False)
-    
-        xbmcplugin.endOfDirectory(addon_handle)
+        if devInfo is not None:
+        
+            for key in devInfo:
+                url = build_url({'mode': 'None'})
+                li = xbmcgui.ListItem(key + ': {}'.format(devInfo[key]))
+                xbmcplugin.addDirectoryItem(handle=addon_handle, url=url, listitem=li, isFolder=False)
+        
+            xbmcplugin.endOfDirectory(addon_handle)
             
     bt.quit()
         
