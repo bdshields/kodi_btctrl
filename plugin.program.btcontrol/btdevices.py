@@ -1,12 +1,12 @@
 import sys
 import re
 
-import pexpect
+#import pexpect
+import subprocess
 from time import sleep
 
 import xbmc
 import logging
-from __builtin__ import list
 
 
 ''' Filter for std error '''
@@ -35,7 +35,7 @@ logger.addHandler(hdlDebug)
 
 
 def debugPrint(message, *args):
-    xbmc.log("{}".format(message), level=xbmc.LOGNOTICE)
+    xbmc.log("{}".format(message), level=xbmc.LOGDEBUG)
     #logger.debug(message, *args)
     
 def infoPrint(message, *args):
@@ -53,7 +53,7 @@ def decode_response(message):
     response={}
     offset = 0
     ''' Remove colours '''
-    ansi_escape =re.compile(r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]')
+    ansi_escape =re.compile(r'(\x01.*?\x02)')
     cleaned = ansi_escape.sub('',message)
 
     ''' Remove leading prompt '''
@@ -61,7 +61,7 @@ def decode_response(message):
     cleaned = cleaned.replace("Waiting to connect to bluetoothd...",'').lstrip()
     
     cleaned = cleaned.rstrip()
-    debugPrint(cleaned)
+    infoPrint(cleaned)
     if cleaned.startswith("[NEW]"):
         response['action']="new"
         offset = 6
@@ -96,14 +96,31 @@ def decode_response(message):
         response['data']['attr'], response['data']['value']=cleaned.split(': ',1)
         offset = -1
     else:
-        response['action']="none"
+        response['action']="message"
+        response['data']=cleaned
         offset = -1
-    
-    
+
     if offset >= 0:
         response['data'] = {}
         response['data']['type'], response['data']['addr'], response['data']['desc'] = cleaned[offset:].split(' ', 2)
+    infoPrint(response)
     return response
+
+def process_response(resp):
+    data=resp.decode('utf-8').splitlines()
+    response = {}
+    response['devices']=[]
+    for line in data:
+        line_decoded = decode_response(line)
+        if line_decoded['action'] == "new":
+            response['devices'].append(line_decoded['data'])
+        if line_decoded['action'] == "existing":
+            response['devices'].append(line_decoded['data'])
+        elif line_decoded['action'] == "update":
+            response[line_decoded['data']['attr']] = line_decoded['data']['value']        
+    infoPrint(response)
+    return response
+
 
 class btdevices:
     devices = []
@@ -113,18 +130,18 @@ class btdevices:
     infoDevice = None
     def __init__(self, exe="/usr/bin/bluetoothctl"):
         infoPrint("starting")
-
-        self.bt_proc = pexpect.spawn(exe)
-        if not self.bt_proc.isalive():
-            errorPrint ("Process failed to start")
-            
-        if self.waitfor('Agent registered',5) == 1:
-            self.ready = True
+        self.exe = exe
+#        self.bt_proc = pexpect.spawn(exe)
+#        if not self.bt_proc.isalive():
+#            errorPrint ("Process failed to start")
+#            
+#        if self.waitfor('Agent registered',5) == 1:
+#            self.ready = True
         
         return None
 
     def quit(self):
-        self.bt_proc.sendline('quit')
+        return
         self.waitfor("Agent unregistered", 5)
         self.ready = False
         
@@ -132,67 +149,6 @@ class btdevices:
         if self.ready == True:
             self.quit()
 
-    def addunique(self, newdevice):
-        for device in self.devices:
-            if device['addr'] == newdevice['addr']:
-                return
-        self.devices.append(newdevice) 
-    
-    def waitIdle(self):
-        delay = 0
-        while delay < 2:
-            if self.waitfor('#') != 0:
-                # Got something, so reset wait period
-                delay = 0
-            else:
-                delay = delay + 1
-        
-        
-    def wait(self, timeout):
-        delay = 0
-        while delay < timeout:
-            if self.waitfor('#') == 0:
-                delay = delay + 1
-            else:
-                sleep(0.1)
-                delay = delay + 0.1
-    
-    def waitfor(self,message, timeout=1):
-        if type(message) is list:
-            prompt = ['\n'] + message
-        else:
-            prompt = ['\n', message]
-        while True:
-            try:
-                i = self.bt_proc.expect(prompt, timeout=timeout)
-                output = self.bt_proc.before + self.bt_proc.after
-                result = decode_response(output)
-                if result['action'] == 'new' and result['data']['type'] == 'Device' :
-                    self.addunique(result['data'])
-                elif result['action'] == 'existing':
-                    self.addunique(result['data'])
-                elif result['action'] == 'scan':
-                    self.scanning = result['data']
-                elif result['action'] == 'change':
-                    pass
-                elif result['action'] == 'agent':
-                    self.ready = result['data']
-                elif result['action'] == 'update':
-                    if self.infoIndex != -1 and len(self.devices) > self.infoIndex:
-                        self.devices[self.infoIndex][result['data']['attr']] = result['data']['value']
-                    elif self.infoDevice is not None:
-                        self.infoDevice[result['data']['attr']] = result['data']['value']
-                if i > 0:
-                    return i
-            except pexpect.EOF:
-                errorPrint ("read end")
-                return 0
-            except pexpect.TIMEOUT:
-                errorPrint ("read timeout")
-                return 0
-            #except:
-            #    errorPrint ("Process not running")
-            #    return 0
     
     def getDeviceList(self):
         if self.ready:
@@ -201,35 +157,32 @@ class btdevices:
             self.waitfor('#')
         
     def getPairedList(self):
-        if self.ready:
-            self.waitIdle()
-            self.bt_proc.sendline('paired-devices')
-            self.waitfor('#')
+        response = subprocess.check_output([self.exe, 'paired-devices'])
+        result = process_response(response)
+        return result['devices']
 
 
-    def scan(self, state):
-        if self.ready:
-            if self.scanning == False and state == True:
-                self.waitIdle()
-                self.bt_proc.sendline('scan on')
-                self.waitIdle()
-                if self.scanning == False:
-                    notify('Failed to scan', 1000)
-                    errorPrint ("Failed to start scanning")
-
-                
-            elif self.scanning == True and state == False:
-                self.bt_proc.sendline('scan off')
-                self.waitIdle()
+    def scan(self):
+        response = subprocess.check_output([self.exe, '--timeout=10','scan', 'on'])
+        result = process_response(response)
+        return result['devices']
 
     def unpair(self, addr):
-        if self.ready:
-            self.waitIdle()
-            self.bt_proc.sendline('remove {}'.format(addr))
-            self.waitIdle()
-            notify('Device unpaired', 1000)
+        response = subprocess.check_output([self.exe, 'remove', addr])
+        result = process_response(response)
+        notify('Device unpaired', 1000)
             
     def pair(self, addr):
+        response = subprocess.check_output([self.exe, 'pair', addr])
+        result = process_response(response)
+        response = subprocess.check_output([self.exe, 'trust', addr])
+        result = process_response(response)
+        response = subprocess.check_output([self.exe, 'connect', addr])
+        result = process_response(response)
+        return
+
+                
+        
         if self.ready:
             self.bt_proc.sendline('pair {}'.format(addr))
             response = self.waitfor(['Confirm passkey \d+ ', 'Pairing successful', 'Failed to pair','Device {} not available'.format(addr)],60)
@@ -247,32 +200,22 @@ class btdevices:
                 notify(self.bt_proc.after, 1000)
 
     def connect(self, addr):
-        if self.ready:
-            self.bt_proc.sendline('connect {}'.format(addr))
-            self.waitfor(['Connection successful', 'Failed to connect'],10)
-            notify(self.bt_proc.after, 1000)
+        response = subprocess.check_output([self.exe, 'connect', addr])
+        result = process_response(response)
+        notify('Device connected', 1000)
+
 
     def disconnect(self, addr):
-        if self.ready:
-            self.bt_proc.sendline('disconnect {}'.format(addr))
-            self.waitfor(['Successful disconnected','Device {} not available'.format(addr)],10)
-            notify(self.bt_proc.after, 1000)
+        response = subprocess.check_output([self.exe, 'disconnect', addr])
+        result = process_response(response)
+        notify('Device disconnected', 1000)
 
-    def findDevice(self, data):
-        index = 0
-        while index < len(self.devices):
-            if 'desc' in data:
-                if data['desc'] == self.devices[index]['desc']:
-                    return index
-            elif 'addr' in data:
-                if data['addr'] == self.devices[index]['addr']:
-                    return index
-            else:
-                raise KeyError("Invalid key used in device search")
-            index = index + 1
-        raise StopIteration("Device not found")
 
     def info(self, addr):
+        response = subprocess.check_output([self.exe, 'info', addr])
+        result = process_response(response)
+        return result
+'''
         if self.ready:
             self.infoDevice = {'addr':addr}
             self.waitIdle()
@@ -289,3 +232,4 @@ class btdevices:
                 return newDevice
         else:
             return None
+'''
