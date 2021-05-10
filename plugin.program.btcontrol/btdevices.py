@@ -61,7 +61,7 @@ def decode_response(message):
     cleaned = cleaned.replace("Waiting to connect to bluetoothd...",'').lstrip()
     
     cleaned = cleaned.rstrip()
-    infoPrint(cleaned)
+    debugPrint(cleaned)
     if cleaned.startswith("[NEW]"):
         response['action']="new"
         offset = 6
@@ -103,7 +103,7 @@ def decode_response(message):
     if offset >= 0:
         response['data'] = {}
         response['data']['type'], response['data']['addr'], response['data']['desc'] = cleaned[offset:].split(' ', 2)
-    infoPrint(response)
+    debugPrint(response)
     return response
 
 def process_response(resp):
@@ -118,7 +118,7 @@ def process_response(resp):
             response['devices'].append(line_decoded['data'])
         elif line_decoded['action'] == "update":
             response[line_decoded['data']['attr']] = line_decoded['data']['value']        
-    infoPrint(response)
+    debugPrint(response)
     return response
 
 
@@ -151,10 +151,9 @@ class btdevices:
 
     
     def getDeviceList(self):
-        if self.ready:
-            self.waitIdle()
-            self.bt_proc.sendline('devices')
-            self.waitfor('#')
+        response = subprocess.check_output([self.exe, 'devices'])
+        result = process_response(response)
+        return result['devices']
         
     def getPairedList(self):
         response = subprocess.check_output([self.exe, 'paired-devices'])
@@ -173,15 +172,9 @@ class btdevices:
         notify('Device unpaired', 1000)
             
     def pair(self, addr):
-        response = subprocess.check_output([self.exe, 'pair', addr])
-        result = process_response(response)
-        response = subprocess.check_output([self.exe, 'trust', addr])
-        result = process_response(response)
-        response = subprocess.check_output([self.exe, 'connect', addr])
-        result = process_response(response)
+        subprocess.run('(echo "pair {}";sleep 10;echo "trust {}"; sleep 2;echo "connect {}";sleep 2)|bluetoothctl'.format(addr,addr,addr),shell=True)
         return
-
-                
+              
         
         if self.ready:
             self.bt_proc.sendline('pair {}'.format(addr))
@@ -210,6 +203,20 @@ class btdevices:
         result = process_response(response)
         notify('Device disconnected', 1000)
 
+    def trust(self, addr):
+        response = subprocess.check_output([self.exe, 'trust', addr])
+        result = process_response(response)
+        notify('Device trusted', 1000)
+
+    def untrust(self, addr):
+        response = subprocess.check_output([self.exe, 'untrust', addr])
+        result = process_response(response)
+        notify('Device untrusted', 1000)
+        
+    def remove(self, addr):
+        response = subprocess.check_output([self.exe, 'remove', addr])
+        result = process_response(response)
+        notify('Device removed', 1000)
 
     def info(self, addr):
         response = subprocess.check_output([self.exe, 'info', addr])

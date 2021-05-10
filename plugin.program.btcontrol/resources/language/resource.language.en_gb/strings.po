@@ -45,3 +45,15 @@ msgctxt "#30025"
 msgid "Scan"
 msgstr ""
 
+msgctxt "#30026"
+msgid "Remove"
+msgstr ""
+
+msgctxt "#30027"
+msgid "Trust"
+msgstr ""
+
+msgctxt "#30028"
+msgid "Untrust"
+msgstr ""
+

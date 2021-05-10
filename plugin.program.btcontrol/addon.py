@@ -82,11 +82,6 @@ if __name__ == '__main__':
 
     if mode is None:
         devices = bt.getPairedList()
-#        bt.getDeviceList()
-#        if len(bt.devices) == 0:
-#            bt.scan(True)
-#            bt.wait(10)
-#            bt.scan(False)
         
         for device in devices:
             url = build_url({'mode': 'info', 'desc': device['desc'], 'addr': device['addr']})
@@ -97,6 +92,10 @@ if __name__ == '__main__':
                                     ],replaceItems=True)
             xbmcplugin.addDirectoryItem(handle=addon_handle, url=url,  listitem=li, isFolder=True)
 
+        # add Devices list
+        url = build_url({'mode': 'devices'})
+        li = xbmcgui.ListItem("Devices")
+        xbmcplugin.addDirectoryItem(handle=addon_handle, url=url,  listitem=li, isFolder=True)
         # add Scan option
         url = build_url({'mode': 'scan'})
         li = xbmcgui.ListItem("Scan")
@@ -105,6 +104,23 @@ if __name__ == '__main__':
         xbmcplugin.endOfDirectory(addon_handle)
         
         
+    elif mode[0] == "devices":
+        xbmc.executebuiltin("ActivateWindow(busydialognocancel)")
+        devices = bt.getDeviceList()
+        xbmc.executebuiltin("Dialog.Close(busydialognocancel)")
+        for device in devices:
+            url = build_url({'mode': 'info', 'desc': device['desc'], 'addr': device['addr']})
+            li = xbmcgui.ListItem('{}'.format(device['desc']))
+            li.addContextMenuItems([(addon.getLocalizedString(30020), 'RunPlugin({})'.format(build_url({'mode': 'pair', 'addr': device['addr']}))),
+                                    (addon.getLocalizedString(30021), 'RunPlugin({})'.format(build_url({'mode': 'unpair', 'addr': device['addr']}))),
+                                    (addon.getLocalizedString(30023), 'RunPlugin({})'.format(build_url({'mode': 'connect', 'addr': device['addr']}))),
+                                    (addon.getLocalizedString(30024), 'RunPlugin({})'.format(build_url({'mode': 'disconnect', 'addr': device['addr']}))),
+                                    (addon.getLocalizedString(30027), 'RunPlugin({})'.format(build_url({'mode': 'trust', 'addr': device['addr']}))),
+                                    (addon.getLocalizedString(30028), 'RunPlugin({})'.format(build_url({'mode': 'untrust', 'addr': device['addr']}))),
+                                    (addon.getLocalizedString(30026), 'RunPlugin({})'.format(build_url({'mode': 'remove', 'addr': device['addr']}))),
+                                    ],replaceItems=True)
+            xbmcplugin.addDirectoryItem(handle=addon_handle, url=url,  listitem=li, isFolder=True)
+        xbmcplugin.endOfDirectory(addon_handle)
     elif mode[0] == "scan":
         xbmc.executebuiltin("ActivateWindow(busydialognocancel)")
         devices = bt.scan()
@@ -122,11 +138,19 @@ if __name__ == '__main__':
         bt.unpair(addr[0])
         xbmc.executebuiltin('Container.Refresh()')
     elif mode[0] == "pair":
+        xbmc.executebuiltin("ActivateWindow(busydialognocancel)")
         bt.pair(addr[0])
+        xbmc.executebuiltin("Dialog.Close(busydialognocancel)")
     elif mode[0] == "connect":
         bt.connect(addr[0])
     elif mode[0] == "disconnect":
         bt.disconnect(addr[0])
+    elif mode[0] == "trust":
+        bt.trust(addr[0])
+    elif mode[0] == "untrust":
+        bt.untrust(addr[0])
+    elif mode[0] == "remove":
+        bt.remove(addr[0])
     elif mode[0] == "info":
         devInfo = bt.info(addr[0])
         if devInfo is not None:
