@@ -1,4 +1,4 @@
-<addon name="Bluetooth Control" version="1.0.0~beta" id="plugin.program.btcontrol" provider-name="Brandon Shields">
+<addon name="Bluetooth Control" version="1.0.0~beta7" id="plugin.program.btcontrol" provider-name="Brandon Shields">
 	<requires></requires>
 	<extension point="xbmc.python.pluginsource" library="addon.py">
 		<provides>executable</provides></extension>
