@@ -1,7 +1,7 @@
 import sys
 import re
 
-#import pexpect
+import chat
 import subprocess
 from time import sleep
 
@@ -172,25 +172,22 @@ class btdevices:
         notify('Device unpaired', 1000)
             
     def pair(self, addr):
-        subprocess.run('(echo "pair {}";sleep 10;echo "trust {}"; sleep 2;echo "connect {}";sleep 2)|bluetoothctl'.format(addr,addr,addr),shell=True)
-        return
-              
-        
-        if self.ready:
-            self.bt_proc.sendline('pair {}'.format(addr))
-            response = self.waitfor(['Confirm passkey \d+ ', 'Pairing successful', 'Failed to pair','Device {} not available'.format(addr)],60)
-            if response == 1:
-                notify(self.bt_proc.after, 5000)
-                self.bt_proc.sendline('yes')
-                response = self.waitfor(['Confirm passkey', 'Pairing successful', 'Failed to pair'],10)
-            if response == 2:
-                notify(self.bt_proc.after, 1000)
-                self.bt_proc.sendline('trust {}'.format(addr))
-                self.waitfor('#',10)
-                self.bt_proc.sendline('connect {}'.format(addr))
-                self.waitfor('#',10)
-            if response == 3 or response == 4:
-                notify(self.bt_proc.after, 1000)
+        bt = chat.chat.process(["bluetoothctl"],line_ending='\n',local_echo=True)
+        bt.read()
+        bt.write('pair {}'.format(addr))
+        result, response, = bt.waitfor(['Confirm passkey \d+ ', 'Pairing successful', 'Failed to pair','Device {} not available'.format(addr)],timeout=60)
+        if response == 0:
+            notify(bt.match.group(), 5000)
+            bt.write('yes')
+            result, response, = bt.waitfor(['Confirm passkey', 'Pairing successful', 'Failed to pair'],timeout=60)
+        if response == 1:
+            notify(bt.match.group(), 1000)
+            bt.expect('trust {}'.format(addr),'#',timeout=10)
+            bt.expect('connect {}'.format(addr),'#',timeout=10)
+        if response == 2 or response == 3:
+            notify(bt.match.group(), 1000)
+            
+        bt.expect("quit","#",timeout=5)
 
     def connect(self, addr):
         response = subprocess.check_output([self.exe, 'connect', addr])
