@@ -172,7 +172,7 @@ class btdevices:
         notify('Device unpaired', 1000)
             
     def pair(self, addr):
-        bt = chat.chat.process(["bluetoothctl"],line_ending='\n',local_echo=True)
+        bt = chat.chat.process([self.exe],line_ending='\n',local_echo=True)
         bt.read()
         bt.write('pair {}'.format(addr))
         result, response, = bt.waitfor(['Confirm passkey \d+ ', 'Pairing successful', 'Failed to pair','Device {} not available'.format(addr)],timeout=60)
